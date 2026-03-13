@@ -371,7 +371,17 @@
 
 <div class="container">
 
-  <!-- Hidden file inputs -->
+  <!-- API Key entry -->
+  <div id="keySection" style="background:var(--white);border-radius:12px;border:1px solid var(--border);padding:20px;margin-bottom:16px;">
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:#999;margin-bottom:8px;">API Key</div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="password" id="apiKeyInput" placeholder="Paste your sk-ant- key here" style="flex:1;font-family:Montserrat,sans-serif;font-size:13px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;outline:none;color:var(--charcoal);">
+      <button id="saveKeyBtn" class="btn btn-primary" style="flex:none;white-space:nowrap;">Save</button>
+    </div>
+    <div style="font-size:11px;color:#aaa;margin-top:8px;">Your key is stored on this device only and never sent anywhere except Anthropic.</div>
+  </div>
+
+
   <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none">
   <input type="file" id="galleryInput" accept="image/*" style="display:none">
 
@@ -480,6 +490,26 @@ const confidenceWarn = document.getElementById('confidenceWarn');
 let currentBase64 = null;
 let currentMimeType = null;
 
+// API Key management
+const apiKeyInput = document.getElementById('apiKeyInput');
+const saveKeyBtn = document.getElementById('saveKeyBtn');
+const keySection = document.getElementById('keySection');
+let apiKey = sessionStorage.getItem('univolv_api_key') || '';
+if (apiKey) {
+  apiKeyInput.value = apiKey;
+  keySection.style.borderColor = 'var(--green)';
+}
+saveKeyBtn.addEventListener('click', () => {
+  const val = apiKeyInput.value.trim();
+  if (!val.startsWith('sk-ant-')) { apiKeyInput.style.borderColor = '#c0392b'; return; }
+  apiKey = val;
+  sessionStorage.setItem('univolv_api_key', apiKey);
+  apiKeyInput.style.borderColor = 'var(--green)';
+  keySection.style.borderColor = 'var(--green)';
+  saveKeyBtn.textContent = 'Saved ✓';
+  setTimeout(() => { saveKeyBtn.textContent = 'Save'; }, 2000);
+});
+
 document.getElementById('openCameraBtn').addEventListener('click', () => cameraInput.click());
 document.getElementById('openGalleryBtn').addEventListener('click', () => galleryInput.click());
 
@@ -519,6 +549,10 @@ document.getElementById('scanBtn').addEventListener('click', scanReceipt);
 
 async function scanReceipt() {
   if (!currentBase64) return;
+  if (!apiKey) {
+    showError('Please enter and save your API key first.');
+    return;
+  }
   hide(previewWrap);
   hide(errorBox);
   hide(resultsBox);
@@ -545,7 +579,12 @@ Rules:
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
